@@ -1,0 +1,32 @@
+{
+  "name": "Thicket",
+  "short_name": "Thicket",
+  "description": "Edge-grown botanical line art: trees, bamboo, reeds, mycelium, ferns, coral blooms and brambles.",
+  "id": "./",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e130e",
+  "theme_color": "#0e130e",
+  "icons": [
+    {
+      "src": "icon/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
