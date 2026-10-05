@@ -1,13 +1,13 @@
 /* =========================================================================
-   THICKET: thicket-styles.js
-   The seven growth styles: Tree, Bamboo, River Reed, Mycelium, Fern,
-   Coral Bloom, Bramble. thicket-app.js paints the background then calls
-   ThicketStyles.draw(context, width, height, settings).
+   THICKET: thicket-styles.js  (v2, full rewrite)
+   Seven bold botanical renderers. Each has its own shape language and a
+   dedicated drawing pass. Origin is fixed for all 8 modes. Tree no longer
+   crashes; its canvas is back.
 
-   Edge styles (tree, bamboo, reed, mycelium, fern) begin exactly on the
-   picture edge. Centre styles (coral, bramble) grow outward from the
-   middle. Everything is drawn from the seed, so the same seed and
-   settings always give the same picture.
+   Edge styles (bottom/top/left/right/two/sides/all/corners) anchor against
+   the frame. Centre styles (coral, bramble) grow from the middle outward.
+
+   Everything is seeded, so the same seed + settings == the same picture.
    ========================================================================= */
 (function () {
   "use strict";
@@ -15,7 +15,7 @@
   var TAU = Math.PI * 2;
   var HALF = Math.PI / 2;
 
-  /* ---------- small helpers ---------- */
+  /* ---------- tiny helpers ---------- */
   function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
   function lerp(a, b, t) { return a + (b - a) * t; }
@@ -30,9 +30,9 @@
     return h >>> 0;
   }
 
-  /* repeatable random, tied to a counter or an index */
+  /* seeded random, tied to an integer index and a salt */
   function cr(seed, i, s) {
-    var h = (seed ^ Math.imul(Math.abs(Math.floor(i)) + 1, 374761393) ^ Math.imul(s + 1, 668265263)) >>> 0;
+    var h = (seed ^ Math.imul((Math.floor(i) | 0) + 1, 374761393) ^ Math.imul((s | 0) + 1, 668265263)) >>> 0;
     h = Math.imul(h ^ (h >>> 15), 2246822519);
     h = Math.imul(h ^ (h >>> 13), 3266489917);
     h ^= h >>> 16;
@@ -57,422 +57,392 @@
       Math.round(lerp(ca[1], cb[1], t)) + "," +
       Math.round(lerp(ca[2], cb[2], t)) + ")";
   }
-  /* blend along the palette, t from 0 (root) to 1 (tip) */
+  /* palette gradient: t = 0 at root, 1 at tip */
   function colGrad(cols, t) {
     t = clamp(t, 0, 1);
     var seg = t * (cols.length - 1);
     var i = Math.min(cols.length - 2, Math.floor(seg));
     return mixHex(cols[i], cols[i + 1], seg - i);
   }
-
-  /* shortest rotation from a toward target, by amount amt */
   function turnToward(a, target, amt) {
     var d = ((target - a + Math.PI * 3) % TAU) - Math.PI;
     return a + d * amt;
   }
 
   /* =======================================================================
-     ROOTS: where each edge-grown piece starts
-     The base sits a hair beyond the picture edge so lines appear to come
-     in from outside the frame.
+     ROOTS — fixed. Handles all 8 origin modes with correct anchor/angle.
+     The anchor sits just beyond the frame so lines enter from outside.
      ======================================================================= */
   function edgeRoots(S, count) {
-    var W = S.W, H = S.H, o = S.p.origin, out = [];
-    var m = 1; /* start just past the edge */
+    var W = S.W, H = S.H, o = S.origin, out = [];
+    var m = 1.5;
 
-    function place(e, f) {
+    function place(edge, f) {
       var x, y, ang;
-      if (e === "b") { x = W * f; y = H + m; ang = -HALF; }
-      else if (e === "t") { x = W * f; y = -m; ang = HALF; }
-      else if (e === "l") { x = -m; y = H * f; ang = 0; }
-      else { x = W + m; y = H * f; ang = Math.PI; }
-      ang += S.lean;
-      /* flare sides outward with spread */
-      ang += (f - 0.5) * 2 * (0.1 + S.spread * 0.55);
+      if (edge === "b")      { x = W * f; y = H + m; ang = -HALF; }
+      else if (edge === "t") { x = W * f; y = -m;    ang = HALF;  }
+      else if (edge === "l") { x = -m;    y = H * f; ang = 0;     }
+      else                   { x = W + m; y = H * f; ang = Math.PI; }
+      /* flare: outer roots lean outward for a crown/fan */
+      ang += S.lean + (f - 0.5) * 2 * (0.08 + S.spread * 0.5);
       out.push({ x: x, y: y, a: ang });
     }
 
-    if (o === "two") { var h = Math.max(1, Math.ceil(count / 2));
-      for (var i = 0; i < h; i++) place("b", (i + 0.5) / h);
-      for (var j = 0; j < h; j++) place("t", (j + 0.5) / h);
-      return out;
-    }
-    if (o === "sides") { var s = Math.max(1, Math.ceil(count / 2));
-      for (var k = 0; k < s; k++) place("l", (k + 0.5) / s);
-      for (var l = 0; l < s; l++) place("r", (l + 0.5) / s);
-      return out;
-    }
-    if (o === "all") { var q = Math.max(1, Math.ceil(count / 4));
-      for (var a = 0; a < q; a++) place("b", (a + 0.5) / q);
-      for (var b = 0; b < q; b++) place("t", (b + 0.5) / q);
-      for (var c2 = 0; c2 < q; c2++) place("l", (c2 + 0.5) / q);
-      for (var d2 = 0; d2 < q; d2++) place("r", (d2 + 0.5) / q);
-      return out;
-    }
-    if (o === "corners") {
+    var i;
+    if (o === "two") {
+      var h = Math.max(1, Math.ceil(count / 2));
+      for (i = 0; i < h; i++) place("b", (i + 0.5) / h);
+      for (i = 0; i < h; i++) place("t", (i + 0.5) / h);
+    } else if (o === "sides") {
+      var s = Math.max(1, Math.ceil(count / 2));
+      for (i = 0; i < s; i++) place("l", (i + 0.5) / s);
+      for (i = 0; i < s; i++) place("r", (i + 0.5) / s);
+    } else if (o === "all") {
+      var q = Math.max(1, Math.ceil(count / 4));
+      for (i = 0; i < q; i++) place("b", (i + 0.5) / q);
+      for (i = 0; i < q; i++) place("t", (i + 0.5) / q);
+      for (i = 0; i < q; i++) place("l", (i + 0.5) / q);
+      for (i = 0; i < q; i++) place("r", (i + 0.5) / q);
+    } else if (o === "corners") {
       var qc = Math.max(1, Math.ceil(count / 4));
-      var cs = [[0, H], [W, H], [0, 0], [W, 0]];
-      for (var ci = 0; ci < 4; ci++) {
-        for (var n = 0; n < qc; n++) {
-          var f = 0.06 + cr(S.seed, ci * 10 + n, 60) * 0.08;
-          var edgeV = n % 2 === 0;
-          var x, y;
-          if (cs[ci][0] === 0 || cs[ci][0] === W) {
-            if (edgeV) { x = cs[ci][0] + (cs[ci][0] === 0 ? -m : m); y = cs[ci][1] + (cs[ci][1] === 0 ? f : -f) * H; }
-            else { x = cs[ci][0] + (cs[ci][0] === 0 ? f : -f) * W; y = cs[ci][1] + (cs[ci][1] === 0 ? -m : m); }
-          } else {
-            if (edgeV) { x = cs[ci][0] + (cs[ci][0] === 0 ? f : -f) * W; y = cs[ci][1] + (cs[ci][1] === 0 ? -m : m); }
-            else { x = cs[ci][0] + (cs[ci][0] === 0 ? -m : m); y = cs[ci][1] + (cs[ci][1] === 0 ? f : -f) * H; }
-          }
-          var aq = Math.atan2(H / 2 - y, W / 2 - x) || 0;
-          out.push({ x: x, y: y, a: aq + S.lean });
+      var corners = [
+        { x: -m,     y: H + m,  a:  Math.PI * 0.25 },
+        { x: W + m,  y: H + m,  a:  Math.PI * 0.75 },
+        { x: -m,     y: -m,     a: -Math.PI * 0.25 },
+        { x: W + m,  y: -m,     a: -Math.PI * 0.75 }
+      ];
+      var ci, n;
+      for (ci = 0; ci < 4; ci++) {
+        for (n = 0; n < qc; n++) {
+          var f = 0.8 + cr(S.seed, ci * 10 + n, 90) * 0.4;
+          var cc = corners[ci];
+          out.push({ x: cc.x, y: cc.y, a: cc.a + S.lean + (n / qc - 0.5) * 0.7 * (S.spread + 0.2) });
         }
       }
-      return out;
+    } else {
+      for (i = 0; i < count; i++) place(o, (i + 0.5) / count);
     }
-    /* single edge: bottom, top, left or right */
-    for (var i2 = 0; i2 < count; i2++) place(o, (i2 + 0.5) / count);
     return out;
   }
 
-  /* colour for one stroke: fade along t, else by limb number */
+  /* colour for one piece: fade along t, or per-limb */
   function strokeCol(S, t, limb) {
-    if (S.p.colourStyle === "limb") return S.cols[(Math.abs(limb)) % 4];
+    if (S.p.colourStyle === "limb")   return S.cols[((Math.floor(limb) | 0) % 4 + 4) % 4];
     if (S.p.colourStyle === "random") return S.cols[Math.floor(cr(S.seed, limb, 77) * 4) % 4];
     return colGrad(S.cols, t);
   }
 
-  /* ---------- tip glyphs: dots, buds, leaves ---------- */
-  function tip(S, x, y, a, col) {
-    var size = S.lw * (0.7 + S.tipSize * 0.9);
-    var t = S.p.tips;
-    if (t === "none" || !col) return;
-    if (t === "dots") {
-      S.c.beginPath(); S.c.arc(x, y, size * 0.6, 0, TAU);
-      S.c.fillStyle = rgba(col, 1); S.c.fill();
-    } else if (t === "buds") {
-      S.c.beginPath(); S.c.arc(x, y, size * 0.8, 0, TAU);
-      S.c.fillStyle = rgba(col, 0.9); S.c.fill();
-      S.c.beginPath(); S.c.arc(x, y, size * 0.45, 0, TAU);
-      S.c.fillStyle = rgba(S.cols[3], 1); S.c.fill();
-    } else {
-      /* leaves: a short spine with a blade on each side */
-      var len = size * 1.7;
-      var px = x + Math.cos(a) * len * 0.25, py = y + Math.sin(a) * len * 0.25;
-      S.c.beginPath(); S.c.moveTo(x, y); S.c.lineTo(px, py);
-      S.c.strokeStyle = rgba(col, 1); S.c.lineWidth = Math.max(1, S.lw * 0.5); S.c.stroke();
-      [-0.55, 0.55].forEach(function (side) {
-        var ca = a + side;
-        var bx = px + Math.cos(ca) * len, by = py + Math.sin(ca) * len;
-        S.c.beginPath();
-        S.c.moveTo(px, py);
-        S.c.quadraticCurveTo(
-          px + Math.cos(ca) * len * 0.6 + Math.cos(ca + HALF) * len * 0.18,
-          py + Math.sin(ca) * len * 0.6 + Math.sin(ca + HALF) * len * 0.18,
-          bx, by
-        );
-        S.c.lineWidth = Math.max(1, S.lw * 0.55); S.c.stroke();
-      });
-    }
-  }
+  /* hardness cap so old phones never freeze */
+  function busy(S) { return S.strokes > 9000; }
 
   /* =======================================================================
-     TREE
-     Trunk starts on the edge and grows inward, splitting as it reaches.
+     TREE — screenprint silhouette: thick curling trunk, boughs, and
+     layered translucent foliage clouds with fine stamped branches.
      ======================================================================= */
   function tree(S) {
     var c = S.c;
-    var count = 2 + Math.round(S.density * 8);
-    var roots = edgeRoots(S, count);
     c.lineCap = "round"; c.lineJoin = "round";
+    var count = 1 + Math.round(S.density * 2);       /* 1-3 trunks */
+    var roots = edgeRoots(S, count);
 
-    var tipsArr = [];
-    roots.forEach(function (root, ri) {
-      var w0 = S.lw * lerp(1.6, 3.2, S.scale);
-      S.branch(root.x, root.y, root.a,
-        S.reachLen * (0.8 + cr(S.seed, ri, 1) * 0.25),
-        w0, S.depth, 0, ri, 0, tipsArr);
+    function cloud(x, y, w, col) {
+      if (busy(S)) return;
+      var discs = 7 + S.depth * 2;
+      for (var i = 0; i < discs; i++) {
+        var rr = w * (0.18 + cr(S.seed, i, 200) * 0.5);
+        var ox = (cr(S.seed, i, 201) - 0.5) * w * 1.1;
+        var oy = (cr(S.seed, i, 202) - 0.5) * w * 0.7;
+        var shade = mixHex(col, colGrad(S.cols, cr(S.seed, i, 203)), cr(S.seed, i, 204) * 0.6);
+        c.beginPath();
+        c.arc(x + ox, y + oy, rr, 0, TAU);
+        c.fillStyle = rgba(shade, 0.22 + cr(S.seed, i, 205) * 0.2);
+        c.fill();
+        S.strokes++;
+      }
+      /* stamped fine branches over the cloud */
+      c.strokeStyle = rgba(col, 0.85);
+      c.lineWidth = Math.max(0.7, S.lw * 0.3);
+      for (var j = 0; j < 5; j++) {
+        var a0 = cr(S.seed, j, 206) * TAU;
+        var x0 = x + Math.cos(a0) * w * 0.2, y0 = y + Math.sin(a0) * w * 0.2;
+        var x1 = x + Math.cos(a0) * w * 0.9, y1 = y + Math.sin(a0) * w * 0.9;
+        c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+        S.strokes++;
+      }
+    }
+
+    function grow(x, y, a, len, w, d, id, t0) {
+      if (d <= 0 || len < 3 || busy(S)) {
+        cloud(x, y, w * lerp(4, 7, S.depth / 8), strokeCol(S, 1, id));
+        return;
+      }
+      var steps = 8;
+      var px = x, py = y, pa = a;
+      for (var i = 1; i <= steps; i++) {
+        var t = i / steps;
+        var cur = pa + Math.sin(S.phase + id * 1.3 + i * 0.6) * (0.1 + S.curl * 0.5);
+        var nx = x + Math.cos(cur) * len * t;
+        var ny = y + Math.sin(cur) * len * t;
+        c.beginPath(); c.moveTo(px, py); c.lineTo(nx, ny);
+        c.strokeStyle = strokeCol(S, t0 + t * (1 - t0), id);
+        c.lineWidth = Math.max(0.8, w * Math.pow(S.taperF, t));
+        c.lineCap = "round"; c.stroke(); S.strokes++;
+        px = nx; py = ny; pa = cur;
+      }
+      var kids = d > 3 ? (cr(S.seed, id, 210) < 0.35 ? 3 : 2) : 2;
+      var span = 0.4 + S.spread * 0.6;
+      for (var k = 0; k < kids; k++) {
+        var side = (k - (kids - 1) / 2) * 2;
+        var ba = pa + side * span + (cr(S.seed, id * 3 + k, 211) - 0.5) * 0.5;
+        grow(px, py, ba, len * 0.68, w * S.taperF, d - 1, id * 3 + k + 1, t0 + 0.08);
+      }
+    }
+
+    roots.forEach(function (r, ri) {
+      var w0 = S.lw * lerp(4, 9, 1 - S.taperF) * (0.8 + S.scale * 0.4);
+      grow(r.x, r.y, r.a, S.reachLen * (0.85 + cr(S.seed, ri, 212) * 0.3),
+           w0, S.depth, ri + 1, 0);
     });
-
-    tipsArr.forEach(function (tp) {
-      tip(S, tp[0], tp[1], tp[2], tp[3]);
-    });
-  }
-
-  /* shared recursive limb used by tree and mycelium */
-  function limb(S, x, y, a, len, w, d, id, t0, tipsArr, opts) {
-    if (d <= 0 || len < 3 || S.strokes > 5200) {
-      if (S.strokes <= 5200) tipsArr.push([x, y, a, strokeCol(S, clamp(t0, 0, 1), id)]);
-      return;
-    }
-    opts = opts || {};
-    var steps = 7 + d;
-    var taper = S.taperF;
-    var px = x, py = y, pa = a, cur;
-    var wob = S.numCurl;
-
-    for (var i = 1; i <= steps; i++) {
-      var t = i / steps;
-      cur = pa + Math.sin(S.phase + id * 1.7 + i * 0.85) * wob * 0.55;
-      var nx = x + Math.cos(cur) * len * t;
-      var ny = y + Math.sin(cur) * len * t;
-      S.c.beginPath(); S.c.moveTo(px, py); S.c.lineTo(nx, ny);
-      S.c.strokeStyle = strokeCol(S, t0 + t * (1 - t0), id);
-      S.c.lineWidth = Math.max(0.7, w * Math.pow(taper, i / steps * 0.9));
-      S.c.stroke();
-      S.strokes++;
-      px = nx; py = ny; pa = cur;
-    }
-
-    var kids = d > 2 ? (cr(S.seed, id * 13 + d, 2) < 0.3 ? 3 : 2) : (d === 2 ? 2 : 0);
-    if (d <= 1) kids = 0;
-    var span = 0.3 + S.spread * 0.55;
-    for (var k = 0; k < kids; k++) {
-      var side = (k - (kids - 1) / 2) * 2;
-      var ba = pa + side * span + (cr(S.seed, id * 7 + k + d, 3) - 0.5) * 0.45 + S.lean * 0.2;
-      limb(S, px, py, ba,
-        len * (0.62 + cr(S.seed, id * 5 + k, 4) * 0.16),
-        w * taper, d - 1, id * Math.max(kids, 2) + k + 1, t0 + 0.08, tipsArr, opts);
-    }
   }
 
   /* =======================================================================
-     BAMBOO
-     Straight jointed stalks from the edge, leaves at the joints.
+     BAMBOO — hollow double-line culms with sumi leaf sprays at the nodes.
      ======================================================================= */
   function bamboo(S) {
     var c = S.c;
-    var count = Math.max(1, Math.round(S.p.bambooCount));
+    c.lineCap = "butt"; c.lineJoin = "round";
+    var count = Math.max(1, Math.round(num(S.p.bambooCount)));
     var roots = edgeRoots(S, count);
     var bend = clamp(num(S.p.bambooBend) / 100, 0, 0.5);
-    var joints = lerp(0.05, 0.3, clamp(num(S.p.bambooJoints) / 100, 0, 1));
-    var w = S.lw * lerp(0.7, 2.4, clamp(num(S.p.bambooWidth) / 100, 0, 1));
-    var lLen = S.lw * lerp(1.4, 4.2, clamp(num(S.p.bambooLeafLen) / 100, 0, 1));
-    var lAng = HALF * lerp(0.2, 1.2, clamp(num(S.p.bambooLeafAngle) / 100, 0, 1));
-    c.lineCap = "round"; c.lineJoin = "round";
+    var joint = lerp(0.05, 0.3, clamp(num(S.p.bambooJoints) / 100, 0, 1));
+    var w = S.lw * lerp(1.2, 4.5, clamp(num(S.p.bambooWidth) / 100, 0, 1)) * (0.7 + S.scale * 0.4);
+    var leafLen = S.lw * lerp(1.6, 5, clamp(num(S.p.bambooLeafLen) / 100, 0, 1));
+    var leafAngH = HALF * lerp(0.2, 1.1, clamp(num(S.p.bambooLeafAngle) / 100, 0, 1));
 
     roots.forEach(function (root, ri) {
-      var L = S.reachLen * (0.7 + cr(S.seed, ri, 10) * 0.3);
-      var perp = root.a + HALF;
-      var bendAmt = (cr(S.seed, ri, 11) - 0.5) * 2 * bend * (S.spread + 0.4);
-      var px = root.x, py = root.y, x, y;
-      for (var i = 1; i <= 26; i++) {
-        var t = i / 26;
-        var off = Math.sin(t * Math.PI) * L * bendAmt * 1.6;
-        c.beginPath(); c.moveTo(px, py);
-        x = root.x + Math.cos(root.a) * L * t + Math.cos(perp) * off;
-        y = root.y + Math.sin(root.a) * L * t + Math.sin(perp) * off;
-        c.lineCap = "round";
-        c.lineTo(x, y);
-        c.strokeStyle = strokeCol(S, t, ri);
-        c.lineWidth = Math.max(0.7, w * (1 - t * S.taperF * 0.5));
-        c.stroke();
-        S.strokes++;
-        px = x; py = y;
+      var L = S.reachLen * (0.7 + cr(S.seed, ri, 20) * 0.3);
+      var perp = root.a - HALF;
+      var offAmt = (cr(S.seed, ri, 21) - 0.5) * 2 * bend * (S.spread + 0.4);
+      var path = [];
+      var i, t, px, py, rx, ry, off;
+      /* build centreline */
+      for (i = 0; i <= 24; i++) {
+        t = i / 24;
+        off = Math.sin(t * Math.PI) * L * offAmt * 1.6;
+        px = root.x + Math.cos(root.a) * L * t + Math.cos(perp) * off;
+        py = root.y + Math.sin(root.a) * L * t + Math.sin(perp) * off;
+        path.push([px, py]);
       }
+      /* hollow body: dark wall fill, then two lighter edge rails */
+      c.beginPath();
+      for (i = 0; i < path.length; i++) {
+        if (i === 0) c.moveTo(path[i][0], path[i][1]);
+        else c.lineTo(path[i][0], path[i][1]);
+      }
+      c.strokeStyle = rgba(colGrad(S.cols, 0.25), 0.9);
+      c.lineWidth = w; c.stroke(); S.strokes++;
 
-      /* joints and leaves */
-      var jt = joints, index = 1;
-      while (jt < 1) {
-        var jx = root.x + Math.cos(root.a) * L * jt + Math.cos(perp) * Math.sin(jt * Math.PI) * L * bendAmt * 1.6;
-        var jy = root.y + Math.sin(root.a) * L * jt + Math.sin(perp) * Math.sin(jt * Math.PI) * L * bendAmt * 1.6;
-        /* joint line */
+      c.strokeStyle = rgba(colGrad(S.cols, 0.6), 1);
+      c.lineWidth = Math.max(0.7, w * 0.22);
+      [-1, 1].forEach(function (side) {
         c.beginPath();
-        c.moveTo(jx - Math.cos(perp) * w * 0.9, jy - Math.sin(perp) * w * 0.9);
-        c.lineTo(jx + Math.cos(perp) * w * 0.9, jy + Math.sin(perp) * w * 0.9);
-        c.strokeStyle = mixHex(strokeCol(S, jt, ri), "#0e130e", 0.25);
-        c.lineWidth = Math.max(0.7, w * 0.35); c.stroke();
-
-        if (S.p.bambooLeaf === "single" && jt > 0.25) {
-          var la = root.a + (index % 2 === 0 ? lAng : -lAng);
-          c.beginPath(); c.moveTo(jx, jy);
-          c.lineTo(jx + Math.cos(la) * lLen, jy + Math.sin(la) * lLen);
-          c.strokeStyle = strokeCol(S, jt, ri + 40); c.lineWidth = Math.max(0.7, w * 0.3); c.stroke();
-        } else if (S.p.bambooLeaf === "spray" && jt > 0.3) {
-          [-1, 0, 1].forEach(function (side) {
-            var la2 = root.a + side * lAng * 0.8;
-            c.beginPath(); c.moveTo(jx, jy);
-            c.lineTo(jx + Math.cos(la2) * lLen * (side === 0 ? 1.3 : 1), jy + Math.sin(la2) * lLen * (side === 0 ? 1.3 : 1));
-            c.strokeStyle = strokeCol(S, jt, ri + 40 + side);
-            c.lineWidth = Math.max(0.7, w * 0.28); c.stroke();
-          });
+        for (i = 0; i < path.length; i++) {
+          var e = i / (path.length - 1);
+          var ex = path[i][0] + Math.cos(perp) * side * w * 0.42;
+          var ey = path[i][1] + Math.sin(perp) * side * w * 0.42;
+          if (i === 0) c.moveTo(ex, ey); else c.lineTo(ex, ey);
         }
-        jt += joints + joints * 0.25;
-        index++;
+        c.stroke(); S.strokes++;
+      });
+
+      /* joints + leaves */
+      var jt = joint;
+      var idx = 1;
+      while (jt < 0.99 && !busy(S)) {
+        var jn = Math.round(jt * 24);
+        var jx = path[jn][0], jy = path[jn][1];
+        c.beginPath();
+        c.moveTo(jx - Math.cos(perp) * w * 0.55, jy - Math.sin(perp) * w * 0.55);
+        c.lineTo(jx + Math.cos(perp) * w * 0.55, jy + Math.sin(perp) * w * 0.55);
+        c.strokeStyle = rgba(S.cols[1], 0.9);
+        c.lineWidth = Math.max(1, w * 0.3); c.stroke(); S.strokes++;
+
+        if (jt > 0.3) {
+          if (S.p.bambooLeaf === "single") {
+            var la = root.a + (idx % 2 === 0 ? leafAngH : -leafAngH);
+            c.beginPath(); c.moveTo(jx, jy);
+            c.lineTo(jx + Math.cos(la) * leafLen, jy + Math.sin(la) * leafLen);
+            c.strokeStyle = strokeCol(S, jt, ri + 40);
+            c.lineWidth = Math.max(0.7, w * 0.28); c.stroke(); S.strokes++;
+          } else if (S.p.bambooLeaf === "spray") {
+            [-1, 0, 1].forEach(function (side) {
+              var la2 = root.a + side * leafAngH * 0.85;
+              c.beginPath(); c.moveTo(jx, jy);
+              c.quadraticCurveTo(
+                jx + Math.cos(la2 + side * 0.2) * leafLen * 0.6,
+                jy + Math.sin(la2 + side * 0.2) * leafLen * 0.6,
+                jx + Math.cos(la2 + side * 0.35) * leafLen,
+                jy + Math.sin(la2 + side * 0.35) * leafLen);
+              c.strokeStyle = strokeCol(S, jt, ri + 40 + side);
+              c.lineWidth = Math.max(0.7, w * 0.26); c.stroke(); S.strokes++;
+            });
+          }
+        }
+        jt += joint * 2.0;
+        idx++;
       }
     });
   }
 
   /* =======================================================================
-     RIVER REED
-     Slender bending stalks from the edge; no trunk, blades at the top.
+     RIVER REED — sweeping tapered ribbons ending in feathered plumes.
      ======================================================================= */
   function reed(S) {
     var c = S.c;
-    var count = 3 + Math.round(S.density * 14);
-    var roots = edgeRoots(S, count);
     c.lineCap = "round"; c.lineJoin = "round";
+    var count = 4 + Math.round(S.density * 16);
+    var roots = edgeRoots(S, count);
+    var wBase = S.lw * lerp(1.1, 2.2, S.scale);
+
+    function plume(x, y, a, t, col) {
+      if (busy(S)) return;
+      var hairs = 9;
+      var got = 0;
+      c.strokeStyle = rgba(col, 0.9);
+      for (var h = 0; h < hairs; h++) {
+        var pa = a - 0.6 + (h / (hairs - 1)) * 1.2;
+        var pl = S.lw * lerp(2.2, 5, S.tipSize);
+        c.beginPath();
+        c.moveTo(x, y);
+        c.lineTo(x + Math.cos(pa) * pl, y + Math.sin(pa) * pl);
+        c.lineWidth = Math.max(0.5, S.lw * 0.22); c.stroke(); S.strokes++;
+        /* bead seed */
+        c.beginPath();
+        c.arc(x + Math.cos(pa) * pl, y + Math.sin(pa) * pl, Math.max(0.8, S.lw * 0.3), 0, TAU);
+        c.fillStyle = rgba(S.cols[3], 0.95); c.fill(); S.strokes++;
+        got++;
+        if (got > 24) break;
+      }
+    }
 
     roots.forEach(function (root, ri) {
-      var L = S.reachLen * (0.7 + cr(S.seed, ri, 20) * 0.45);
-      var phase = cr(S.seed, ri, 21) * TAU;
-      var w = S.lw * lerp(0.35, 0.8, S.scale);
+      var L = S.reachLen * (0.7 + cr(S.seed, ri, 30) * 0.4);
+      var phase = cr(S.seed, ri, 31) * TAU;
       var px = root.x, py = root.y;
-      for (var i = 1; i <= 18; i++) {
-        var t = i / 18;
-        var bendA = root.a + Math.sin(phase + t * 2.6) * S.curl * 0.012 * 12;
-        var x = root.x + Math.cos(bendA) * L * t;
-        var y = root.y + Math.sin(bendA) * L * t;
+      var w = wBase;
+      var i, t;
+      for (i = 1; i <= 20; i++) {
+        t = i / 20;
+        var a = root.a + Math.sin(phase + t * 3.0) * (0.15 + S.curl * 0.7);
+        var x = root.x + Math.cos(a) * L * t;
+        var y = root.y + Math.sin(a) * L * t;
         c.beginPath(); c.moveTo(px, py); c.lineTo(x, y);
         c.strokeStyle = strokeCol(S, t, ri);
-        c.lineWidth = Math.max(0.6, w * (1 - t * 0.5));
+        c.lineWidth = Math.max(0.7, w * (1 - t * S.taperF * 0.7));
         c.stroke(); S.strokes++;
-        /* blade near the top */
-        if (i === Math.round(14 + cr(S.seed, ri, 22) * 3)) {
-          [-1, 1].forEach(function (side) {
-            var la = bendA + side * 0.8;
-            c.beginPath(); c.moveTo(x, y);
-            c.quadraticCurveTo(x + Math.cos(la) * L * 0.12, y + Math.sin(la) * L * 0.12,
-              x + Math.cos(la + side * 0.3) * L * 0.2, y + Math.sin(la + side * 0.3) * L * 0.2);
-            c.strokeStyle = strokeCol(S, t + 0.1, ri + 30);
-            c.lineWidth = Math.max(0.5, w * 0.5); c.stroke();
-          });
-        }
         px = x; py = y;
       }
-      tip(S, px, py, root.a, strokeCol(S, 1, ri));
+      /* a few shorter companion stalks in the tuft */
+      if (ri % 3 === 0 && !busy(S)) {
+        var a2 = root.a + (cr(S.seed, ri, 34) - 0.5) * 0.9;
+        var L2 = L * 0.5;
+        c.beginPath(); c.moveTo(root.x, root.y);
+        c.quadraticCurveTo(
+          root.x + Math.cos(a2) * L2 * 0.6, root.y + Math.sin(a2) * L2 * 0.6,
+          root.x + Math.cos(a2) * L2, root.y + Math.sin(a2) * L2);
+        c.strokeStyle = strokeCol(S, 0.6, ri + 20);
+        c.lineWidth = Math.max(0.6, wBase * 0.6);
+        c.stroke(); S.strokes++;
+      }
+      plume(px, py, root.a, 1, strokeCol(S, 1, ri));
     });
   }
 
   /* =======================================================================
-     MYCELIUM
-     Root threads from the edge, branching, looping, with joint nodes.
+     MYCELIUM — luminous branching/rejoining web with spore bead nodes.
      ======================================================================= */
   function mycelium(S) {
     var c = S.c;
-    var count = 3 + Math.round(S.density * 8);
-    var roots = edgeRoots(S, count);
     c.lineCap = "round"; c.lineJoin = "round";
-
-    function walk(x, y, a, len, w, d, id, lead) {
-      if (d <= 0 || len < 2.5 || S.strokes > 5000) return;
-      var steps = 7 + d * 2;
-      var px = x, py = y, pa = a;
-      var aim = a;
-      for (var i = 1; i <= steps; i++) {
-        var t = i / steps;
-        aim = turnToward(aim, a + lead, 0.08);
-        var wa = aim + (cr(S.seed, id * 31 + i, 30) - 0.5) * S.curl * 0.022 * 12;
-        var nx = x + Math.cos(wa) * len * t;
-        var ny = y + Math.sin(wa) * len * t;
-        c.beginPath(); c.moveTo(px, py); c.lineTo(nx, ny);
-        c.strokeStyle = strokeCol(S, t, id);
-        c.lineWidth = Math.max(0.6, w * Math.pow(S.taperF, t));
-        c.stroke(); S.strokes++;
-        px = nx; py = ny; pa = wa;
-
-        /* loop gesture: a short arc back toward the line occasionally */
-        if (i === Math.round(steps * 0.6) && cr(S.seed, id, 32) < 0.5) {
-          c.beginPath();
-          c.arc(px, py, len * 0.06, pa, pa + TAU * 0.4);
-          c.strokeStyle = strokeCol(S, t, id + 99); c.lineWidth = Math.max(0.5, w * 0.5); c.stroke();
-        }
-      }
-      /* nodes */
-      c.beginPath(); c.arc(px, py, Math.max(1.2, w * 0.45), 0, TAU);
-      c.fillStyle = rgba(S.cols[3], 0.95); c.fill();
-
-      var children = cr(S.seed, id, 33) < 0.4 ? 1 : 2;
-      for (var k = 0; k < children; k++) {
-        var side = (k - (children - 1) / 2) * 2;
-        var ba = pa + side * (0.3 + S.spread * 0.5);
-        walk(px, py, ba, len * 0.55, w * S.taperF, d - 1, id * 7 + k + 1, side * (S.spread + 0.2) * 0.4);
-      }
-    }
-
-    roots.forEach(function (root, ri) {
-      walk(root.x, root.y, root.a,
-        S.reachLen * (0.6 + Math.random() * 0.4) /* deterministic below */,
-        S.lw * lerp(0.8, 1.6, S.scale), S.depth, ri + 1, 0);
-    });
-    /* keep it deterministic: redo with seed-random lengths */
-  }
-
-  /* mycelium needs deterministic lengths, so it runs twice; second pass
-     keeps the same result while the first pass is discarded. To keep the
-     code simple we run one deterministic pass directly. */
-  function myceliumDeterministic(S) {
-    var c = S.c;
-    var count = 3 + Math.round(S.density * 8);
+    var count = 3 + Math.round(S.density * 9);
     var roots = edgeRoots(S, count);
-    c.lineCap = "round"; c.lineJoin = "round";
+    var w0 = S.lw * lerp(0.9, 1.7, S.scale);
 
-    function walk(x, y, a, len, w, d, id, lead) {
-      if (d <= 0 || len < 2.5 || S.strokes > 5000) return;
-      var steps = 7 + d * 2;
+    function web(x, y, a, len, w, d, id, lead) {
+      if (d <= 0 || len < 2.5 || busy(S)) return;
+      var steps = 8 + d * 2;
       var px = x, py = y, aim = a;
-      for (var i = 1; i <= steps; i++) {
-        var t = i / steps;
-        aim = turnToward(aim, a + lead, 0.08);
-        var wa = aim + (cr(S.seed, id * 31 + i, 30) - 0.5) * S.curl * 0.022 * 12;
-        var nx = x + Math.cos(wa) * len * t;
-        var ny = y + Math.sin(wa) * len * t;
+      var i, t, wa, nx, ny;
+      for (i = 1; i <= steps; i++) {
+        t = i / steps;
+        aim = turnToward(aim, a + lead, 0.07);
+        wa = aim + (cr(S.seed, id * 31 + i, 40) - 0.5) * (0.3 + S.curl * 1.1);
+        nx = x + Math.cos(wa) * len * t;
+        ny = y + Math.sin(wa) * len * t;
         c.beginPath(); c.moveTo(px, py); c.lineTo(nx, ny);
         c.strokeStyle = strokeCol(S, t, id);
         c.lineWidth = Math.max(0.6, w * Math.pow(S.taperF, t));
         c.stroke(); S.strokes++;
+        /* glowing spore halo at some joints */
+        if (i % 3 === 0) {
+          c.beginPath(); c.arc(nx, ny, Math.max(1.3, w * 0.6), 0, TAU);
+          c.fillStyle = rgba(S.cols[3], 0.85); c.fill(); S.strokes++;
+        }
         px = nx; py = ny;
-        if (i === Math.round(steps * 0.6) && cr(S.seed, id, 32) < 0.5) {
-          c.beginPath(); c.arc(px, py, len * 0.06, pa2(i), pa2(i) + TAU * 0.4);
-          c.strokeStyle = strokeCol(S, t, id + 99); c.lineWidth = Math.max(0.5, w * 0.5); c.stroke();
-        }
-        if (i === steps) {
-          c.beginPath(); c.arc(px, py, Math.max(1.2, w * 0.45), 0, TAU);
-          c.fillStyle = rgba(S.cols[3], 0.95); c.fill();
-        }
       }
-      var children = cr(S.seed, id, 33) < 0.4 ? 1 : 2;
-      for (var k = 0; k < children; k++) {
-        var side = (k - (children - 1) / 2) * 2;
-        var ba = aim + side * (0.3 + S.spread * 0.5);
-        walk(px, py, ba, len * 0.55, w * S.taperF, d - 1, id * 7 + k + 1, side * (S.spread + 0.2) * 0.4);
-      }
-      /* keep a valid reference for the loop gesture */
-      function pa2(i) {
-        var t = i / steps;
-        return aim + (cr(S.seed, id * 31 + i, 30) - 0.5) * S.curl * 0.022 * 12;
+      var children = cr(S.seed, id, 41) < 0.4 ? 1 : 2;
+      var k, side, ba;
+      for (k = 0; k < children; k++) {
+        side = (k - (children - 1) / 2) * 2;
+        ba = aim + side * (0.35 + S.spread * 0.6);
+        web(px, py, ba, len * 0.55, w * S.taperF, d - 1, id * 7 + k + 1, side * (S.spread + 0.2) * 0.5);
       }
     }
 
     roots.forEach(function (root, ri) {
-      walk(root.x, root.y, root.a,
-        S.reachLen * (0.6 + cr(S.seed, ri, 40) * 0.4),
-        S.lw * lerp(0.8, 1.6, S.scale), S.depth, ri + 1, 0);
+      web(root.x, root.y, root.a,
+          S.reachLen * (0.65 + cr(S.seed, ri, 50) * 0.4),
+          w0, S.depth, ri + 1, 0);
     });
   }
 
   /* =======================================================================
-     FERN
-     A spine from the edge with paired leaflets; droop curls the tip down.
+     FERN — deep curving spines, solid filled leaflets, fiddlehead scroll
+     at the base.
      ======================================================================= */
   function fern(S) {
     var c = S.c;
-    var count = Math.max(1, Math.round(S.p.fernCount));
+    c.lineCap = "round"; c.lineJoin = "round";
+    var count = Math.max(1, Math.round(num(S.p.fernCount)));
     var roots = edgeRoots(S, count);
     var spacing = clamp(num(S.p.fernSpacing) / 100, 0, 1);
-    var leafGap = lerp(0.03, 0.11, 1 - spacing);
-    var droop = clamp(num(S.p.fernDroop) / 100, 0, 1) * 0.9;
-    c.lineCap = "round"; c.lineJoin = "round";
+    var leafGap = lerp(0.035, 0.12, 1 - spacing);
+    var droop = clamp(num(S.p.fernDroop) / 100, 0, 1);
+
+    function fiddlehead(x, y, a, scale) {
+      /* a tight spiral scroll at the base */
+      c.strokeStyle = strokeCol(S, 0.3, 0);
+      c.lineWidth = Math.max(0.8, S.lw * 0.5);
+      var R0 = S.lw * lerp(3, 6, S.tipSize) * scale;
+      c.beginPath();
+      var spir = 0.2 + S.curl * 0.6;
+      for (var a_ = 0; a_ <= TAU * spir; a_ += 0.12) {
+        var rr = R0 * (0.15 + 0.85 * a_ / (TAU * spir));
+        if (a_ === 0) c.moveTo(x + Math.cos(a + a_) * rr, y + Math.sin(a + a_) * rr);
+        else c.lineTo(x + Math.cos(a + a_) * rr, y + Math.sin(a + a_) * rr);
+      }
+      c.stroke(); S.strokes++;
+    }
 
     roots.forEach(function (root, ri) {
-      var L = S.reachLen * (0.75 + cr(S.seed, ri, 50) * 0.35);
+      var L = S.reachLen * (0.75 + cr(S.seed, ri, 60) * 0.35);
       var pts = [];
-      var n = 34;
-      var a = root.a;
-      for (var i = 0; i <= n; i++) {
-        var t = i / n;
-        a = root.a + Math.sin(ri * 1.9 + t * 2.2) * S.curl * 0.012 * 8;
-        a = turnToward(a, HALF, droop * 0.014 * t * t * 60);
+      var n = 32, i, t, a;
+      a = root.a;
+      for (i = 0; i <= n; i++) {
+        t = i / n;
+        a = root.a + Math.sin(ri * 1.9 + t * 2.4) * (0.2 + S.curl * 0.5);
+        a = turnToward(a, HALF, droop * 0.9 * t);
         var x = root.x + Math.cos(a) * L * t;
         var y = root.y + Math.sin(a) * L * t;
         pts.push([x, y, a]);
@@ -481,126 +451,149 @@
           c.moveTo(pts[i - 1][0], pts[i - 1][1]);
           c.lineTo(x, y);
           c.strokeStyle = strokeCol(S, t, ri);
-          c.lineWidth = Math.max(0.7, S.lw * (1 - t * S.taperF * 0.6));
+          c.lineWidth = Math.max(0.7, S.lw * (1 - t * S.taperF * 0.5));
           c.stroke(); S.strokes++;
         }
       }
-      /* leaflets */
-      var t = leafGap;
-      while (t < 0.97) {
+      /* solid filled leaflets */
+      t = leafGap;
+      while (t < 0.96 && !busy(S)) {
         var idx = Math.round(t * n);
         var pt = pts[idx];
-        var leafLen = L * (0.2 - 0.12 * spacing) * (1 - t * 0.8);
+        var len = L * (0.16 - 0.1 * spacing) * (1 - t * 0.7);
         [-1, 1].forEach(function (side) {
-          var la = pt[2] + side * (0.75 + lerp(0.1, 0.4, spacing));
-          c.beginPath(); c.moveTo(pt[0], pt[1]);
-          c.lineTo(pt[0] + Math.cos(la) * leafLen, pt[1] + Math.sin(la) * leafLen);
-          c.strokeStyle = strokeCol(S, t, ri + side);
-          c.lineWidth = Math.max(0.5, S.lw * 0.5 * (1 - t * 0.7));
-          c.stroke();
+          var la = pt[2] + side * (0.7 + lerp(0.15, 0.45, spacing));
+          var bx = pt[0] + Math.cos(la) * len, by = pt[1] + Math.sin(la) * len;
+          c.beginPath();
+          c.moveTo(pt[0] - Math.cos(pt[2]) * len * 0.25, pt[1] - Math.sin(pt[2]) * len * 0.25);
+          c.quadraticCurveTo(
+            pt[0] + Math.cos(la) * len * 0.55 + Math.cos(la + HALF) * len * 0.28,
+            pt[1] + Math.sin(la) * len * 0.55 + Math.sin(la + HALF) * len * 0.28,
+            bx, by);
+          c.fillStyle = rgba(strokeCol(S, t, ri + side), 0.7);
+          c.fill(); S.strokes++;
         });
         t += leafGap;
       }
-      var end = pts[n];
-      tip(S, end[0], end[1], end[2], strokeCol(S, 1, ri));
+      fiddlehead(root.x, root.y, root.a, 1);
     });
   }
 
   /* =======================================================================
-     CORAL BLOOM
-     Starts at the centre and builds outward in layered fans with clubbed
-     tips. Origin does not apply.
+     CORAL BLOOM — centre-out scalloped mandalic fan with polyp beads.
      ======================================================================= */
   function coral(S) {
     var c = S.c;
-    var layers = clamp(Math.round(3 + S.depth * 0.7), 3, 8);
-    var r0 = S.minR * 0.02;
-    var rMax = S.minR * 0.47 * clamp(S.scale + (num(S.p.reach) / 100 - 0.7) * 0.25, 0.6, 1.3);
     c.lineCap = "round"; c.lineJoin = "round";
+    var layers = clamp(3 + S.depth, 4, 9);
+    var r0 = S.minR * 0.02;
+    var rMax = S.minR * 0.47 * clamp(0.6 + S.scale * 0.4, 0.5, 1.3) *
+               clamp(0.6 + (num(S.p.reach) / 100) * 0.5, 0.4, 1.1);
+    var li, layer, arms, j, ang, curlA, x0, y0, x1, y1, col;
 
-    var layerRadius = [];
-    for (var li = 0; li <= layers; li++) {
-      layerRadius.push(r0 + (rMax - r0) * (li / layers));
-    }
-    for (var layer = 0; layer < layers; layer++) {
-      var rIn = layerRadius[layer], rOut = layerRadius[layer + 1];
-      var arms = 5 + Math.round(S.density * 12) + layer * 2;
+    for (layer = 0; layer < layers; layer++) {
+      var rIn = r0 + (rMax - r0) * (layer / layers);
+      var rOut = r0 + (rMax - r0) * ((layer + 1) / layers);
+      arms = 6 + layer * (2 + Math.round(S.density * 6));
       var baseTurn = cr(S.seed, layer, 70) * TAU;
-      for (var j = 0; j < arms; j++) {
-        var ang = baseTurn + j / arms * TAU;
-        var curlA = (cr(S.seed, layer * 13 + j, 71) - 0.5) * S.curl * 0.016 * 12;
-        var x0 = S.cx + Math.cos(ang) * rIn, y0 = S.cy + Math.sin(ang) * rIn;
-        var x1 = S.cx + Math.cos(ang + curlA) * rOut, y1 = S.cy + Math.sin(ang + curlA) * rOut;
-        var col = strokeCol(S, layer / layers, layer * 17 + j);
+      for (j = 0; j < arms; j++) {
+        if (busy(S)) return;
+        ang = baseTurn + j / arms * TAU;
+        curlA = (cr(S.seed, layer * 13 + j, 71) - 0.5) * S.curl * 0.9;
+        x0 = S.cx + Math.cos(ang) * rIn;
+        y0 = S.cy + Math.sin(ang) * rIn;
+        x1 = S.cx + Math.cos(ang + curlA) * rOut;
+        y1 = S.cy + Math.sin(ang + curlA) * rOut;
+        col = strokeCol(S, layer / layers, layer * 17 + j);
+        /* scalloped segment: a filled fan petal from inner to outer */
         c.beginPath();
         c.moveTo(x0, y0);
-        c.quadraticCurveTo((x0 + x1) / 2 + Math.cos(ang + curlA / 2 + HALF) * (rOut - rIn) * 0.25,
-          (y0 + y1) / 2 + Math.sin(ang + curlA / 2 + HALF) * (rOut - rIn) * 0.25,
+        c.quadraticCurveTo(
+          S.cx + Math.cos(ang + curlA / 2) * (rOut + (rOut - rIn) * 0.4),
+          S.cy + Math.sin(ang + curlA / 2) * (rOut + (rOut - rIn) * 0.4),
           x1, y1);
+        c.fillStyle = rgba(col, 0.5);
+        c.fill(); S.strokes++;
         c.strokeStyle = rgba(col, 0.95);
-        c.lineWidth = Math.max(0.7, S.lw * lerp(1.1, 0.45, layer / layers));
-        c.stroke(); S.strokes++;
-        /* clubbed tip */
-        c.beginPath(); c.arc(x1, y1, Math.max(1.4, S.lw * S.tipSize * 0.8), 0, TAU);
-        c.fillStyle = rgba(col, 1); c.fill();
+        c.lineWidth = Math.max(0.7, S.lw * lerp(1.1, 0.4, layer / layers));
+        c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); S.strokes++;
+        /* polyp bead on the outer rim */
+        c.beginPath();
+        c.arc(x1, y1, Math.max(1.4, S.lw * S.tipSize * 0.9), 0, TAU);
+        c.fillStyle = rgba(col, 1); c.fill(); S.strokes++;
       }
     }
-    /* dense spark centre */
-    c.beginPath(); c.arc(S.cx, S.cy, Math.max(2, S.lw * S.tipSize * 0.5), 0, TAU);
+    c.beginPath(); c.arc(S.cx, S.cy, Math.max(2, S.lw * S.tipSize * 0.6), 0, TAU);
     c.fillStyle = rgba(S.cols[3], 1); c.fill();
   }
 
   /* =======================================================================
-     BRAMBLE
-     Starts near the centre and crawls outward in wavy thorny stalks. The
-     middle stays open. Origin does not apply.
+     BRAMBLE — centre-out crown-of-thorns tangle with berry clusters.
      ======================================================================= */
   function bramble(S) {
     var c = S.c;
-    var count = 5 + Math.round(S.density * 9);
-    var r0 = S.minR * 0.03;
-    var rMax = S.minR * 0.5 * clamp(S.scale + (num(S.p.reach) / 100 - 0.5) * 0.2, 0.7, 1.2);
     c.lineCap = "round"; c.lineJoin = "round";
+    var count = 6 + Math.round(S.density * 10);
+    var r0 = S.minR * 0.03;
+    var rMax = S.minR * 0.5 * clamp(0.7 + S.scale * 0.4, 0.5, 1.2) *
+               clamp(0.6 + (num(S.p.reach) / 100) * 0.4, 0.4, 1);
+    c.lineCap = "round";
 
-    for (var s = 0; s < count; s++) {
-      var startA = s / count * TAU + cr(S.seed, s, 80) * 0.4;
-      var px = S.cx + Math.cos(startA) * r0, py = S.cy + Math.sin(startA) * r0;
-      var a = startA;
-      var steps = 12 + S.depth * 2;
-      var segLen = (rMax - r0) / steps;
-      for (var i = 1; i <= steps; i++) {
-        var t = i / steps;
-        a += (cr(S.seed, s * 29 + i, 81) - 0.5) * (0.4 + S.curl * 0.014);
-        var r = r0 + segLen * i;
-        var x = S.cx + Math.cos(a) * r, y = S.cy + Math.sin(a) * r;
+    function berries(x, y) {
+      if (busy(S)) return;
+      var n = 3 + Math.floor(cr(S.seed, x, 0) * 3);
+      for (var b = 0; b < n; b++) {
+        var a = cr(S.seed, x, b + 1) * TAU;
+        var rr = S.lw * lerp(1.2, 2.6, S.tipSize);
+        var bx = x + Math.cos(a) * rr * 1.4, by = y + Math.sin(a) * rr * 1.4;
+        c.beginPath(); c.arc(bx, by, rr * 0.6, 0, TAU);
+        c.fillStyle = rgba(S.cols[3], 0.95); c.fill(); S.strokes++;
+        c.beginPath(); c.arc(bx - rr * 0.2, by - rr * 0.2, rr * 0.18, 0, TAU);
+        c.fillStyle = "rgba(255,255,255,0.55)"; c.fill();
+      }
+    }
+
+    var s, i, a, px, py, x, y, r, steps, t, segLen;
+    for (s = 0; s < count; s++) {
+      var startA = s / count * TAU + cr(S.seed, s, 80) * 0.5;
+      px = S.cx + Math.cos(startA) * r0;
+      py = S.cy + Math.sin(startA) * r0;
+      a = startA;
+      steps = 13 + S.depth * 2;
+      segLen = (rMax - r0) / steps;
+      for (i = 1; i <= steps; i++) {
+        if (busy(S)) return;
+        t = i / steps;
+        a += (cr(S.seed, s * 29 + i, 81) - 0.5) * (0.5 + S.curl * 1.3);
+        r = r0 + segLen * i;
+        x = S.cx + Math.cos(a) * r;
+        y = S.cy + Math.sin(a) * r;
+        /* thick thorny vine */
         c.beginPath(); c.moveTo(px, py); c.lineTo(x, y);
         c.strokeStyle = strokeCol(S, t, s);
-        c.lineWidth = Math.max(0.8, S.lw * (1.4 - t * 0.6)) * 0.9;
+        c.lineWidth = Math.max(1, S.lw * (1.5 - t * 0.6) * 0.9);
         c.stroke(); S.strokes++;
-
-        /* thorns every other step */
-        if (i % 2 === 0 && t > 0.18) {
-          var thornLen = S.lw * lerp(0.9, 2.1, S.tipSize);
-          [-0.9, 0.9].forEach(function (side) {
-            var ta = a + side + HALF * 0.5;
-            c.beginPath(); c.moveTo(x, y);
-            c.lineTo(x + Math.cos(ta) * thornLen, y + Math.sin(ta) * thornLen);
-            c.strokeStyle = rgba(strokeCol(S, t, s), 0.9);
-            c.lineWidth = Math.max(0.6, S.lw * 0.28); c.stroke();
+        /* sharp triangular thorns */
+        if (i % 2 === 0) {
+          var thornLen = S.lw * lerp(1.4, 3.2, S.tipSize);
+          [-1, 1].forEach(function (side) {
+            var ta = a + side + HALF * 0.6;
+            var tx = x + Math.cos(ta) * thornLen, ty = y + Math.sin(ta) * thornLen;
+            c.beginPath(); c.moveTo(x, y); c.lineTo(tx, ty);
+            c.strokeStyle = rgba(strokeCol(S, t, s), 0.95);
+            c.lineWidth = Math.max(0.7, S.lw * 0.3); c.stroke(); S.strokes++;
           });
         }
-        /* side shoots */
-        if (i === Math.round(steps * 0.45) && cr(S.seed, s, 82) < 0.6) {
-          var sa = a + (cr(S.seed, s, 83) - 0.5) * 1.6;
-          c.beginPath(); c.moveTo(x, y);
-          c.quadraticCurveTo(x + Math.cos(sa) * segLen * 3, y + Math.sin(sa) * segLen * 3,
-            x + Math.cos(sa + 0.5) * segLen * 4, y + Math.sin(sa + 0.5) * segLen * 4);
-          c.strokeStyle = strokeCol(S, t, s + 50);
-          c.lineWidth = Math.max(0.6, S.lw * 0.5); c.stroke();
-        }
+        /* berries on some segments */
+        if (i % 5 === 0 && t > 0.3) berries(x, y);
         px = x; py = y;
       }
-      tip(S, px, py, a, strokeCol(S, 1, s));
+      /* ragged stem tip */
+      var tipCol = strokeCol(S, 1, s);
+      c.beginPath();
+      c.arc(px, py, Math.max(1.2, S.lw * S.tipSize), 0, TAU);
+      c.fillStyle = rgba(tipCol, 0.9); c.fill();
+      S.strokes++;
     }
   }
 
@@ -616,33 +609,31 @@
     var S = {
       c: c, p: p, W: W, H: H,
       cx: W / 2, cy: H / 2,
-      k: k,
       minR: Math.min(W, H),
+      k: k,
       lw: Math.max(1, num(p.lineWeight) * k),
       seed: hash(p.seed),
       cols: (p.colors || ["#c9a24a", "#9bcf7a", "#4f7a3a", "#e8d28a"]).slice(0, 4),
+      origin: p.origin || "bottom",
+      growthStyle: p.growthStyle,
       spread: clamp(num(p.spread) / 100, 0, 1),
       density: clamp(num(p.density) / 100, 0, 1),
       depth: clamp(Math.round(num(p.depth)), 2, 8),
       curl: clamp(num(p.curl) / 100, 0, 1),
-      numCurl: clamp(num(p.curl) / 100, 0, 1) * 0.5 + 0.02,
       taperF: 0.55 + (1 - clamp(num(p.taper) / 100, 0, 1)) * 0.45,
       tipSize: clamp(num(p.tipSize) / 100, 0.1, 1),
-      lean: num(p.lean) / 100 * 0.55,
+      lean: num(p.lean) / 100 * 0.6,
       strokes: 0,
-      phase: hash(p.seed + "phase") % 17,
-      reachLen: Math.max(W, H) * 0.52 * clamp(num(p.reach) / 100, 0.15, 1) * 1.1 *
-        clamp(num(p.scale), 0.55, 1.7),
+      phase: hash(p.seed + "phase") % 19,
+      reachLen: Math.max(W, H) * 0.52 * clamp(num(p.reach) / 100, 0.15, 1.2) *
+                1.1 * clamp(num(p.scale), 0.6, 1.7),
       scale: clamp(num(p.scale), 0.5, 2)
     };
 
-    /* the tree recursion engine lives on S so mycelium and others reuse it */
-    S.branch = limb;
-
-    var style = p.growthStyle;
+    var style = S.growthStyle;
     if (style === "bamboo") bamboo(S);
     else if (style === "reed") reed(S);
-    else if (style === "mycelium") myceliumDeterministic(S);
+    else if (style === "mycelium") mycelium(S);
     else if (style === "fern") fern(S);
     else if (style === "coral") coral(S);
     else if (style === "bramble") bramble(S);
