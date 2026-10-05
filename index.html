@@ -10,12 +10,15 @@
 </head>
 <body>
 <div class="appWrap">
+
   <canvas id="mainCanvas"></canvas>
+
   <div class="topBar">
     <span class="topTitle">Thicket</span>
     <button id="btnRandomize" class="iconBtn" title="Randomize">⟳</button>
     <button id="btnExport" class="iconBtn" title="Save image">↓</button>
   </div>
+
   <div class="sheet" id="sheet">
     <div class="sheetHandle" id="sheetHandle">
       <div class="sheetPill"></div>
@@ -31,15 +34,15 @@
           <div class="settingRowInner"><span class="settingName">Style</span><span class="settingVal" id="growthStyleVal">Tree</span></div>
           <div class="settingControl">
             <select id="growthStyle" class="bigSelect">
-              <option value="tree" selected>Tree</option>
-              <option value="bamboo">Bamboo</option>
-              <option value="reed">River Reed</option>
-              <option value="mycelium">Mycelium</option>
-              <option value="fern">Fern</option>
-              <option value="coral">Coral Bloom</option>
-              <option value="bramble">Bramble</option>
+              <option value="tree" selected>Tree of life</option>
+              <option value="bamboo">Grove</option>
+              <option value="reed">Fountain</option>
+              <option value="mycelium">Mirror lace</option>
+              <option value="fern">Corner frames</option>
+              <option value="coral">Mandala</option>
+              <option value="bramble">Wreath</option>
             </select>
-            <p class="settingHint">Tree, Bamboo, Reed, Mycelium and Fern grow from the picture edge. Coral and Bramble grow outward from the centre.</p>
+            <p class="settingHint">Each style has one fixed, symmetrical composition. Sliders shape it; the seed varies it.</p>
           </div>
         </div>
         <div class="settingRow" data-key="seed">
@@ -52,82 +55,60 @@
         </div>
       </div>
 
-      <!-- GROWTH (shared) -->
+      <!-- SHAPE (shared) -->
       <div class="settingsGroup">
-        <div class="groupLabel">Growth</div>
-        <div class="settingRow" data-key="origin" data-styles="tree bamboo reed mycelium fern">
-          <div class="settingRowInner"><span class="settingName">Origin</span><span class="settingVal" id="originVal">Bottom</span></div>
-          <div class="settingControl">
-            <select id="origin" class="bigSelect">
-              <option value="bottom" selected>Bottom</option>
-              <option value="top">Top</option>
-              <option value="left">Left</option>
-              <option value="right">Right</option>
-              <option value="two">Bottom and top</option>
-              <option value="sides">Left and right</option>
-              <option value="all">All four sides</option>
-              <option value="corners">Corners</option>
-            </select>
-            <p class="settingHint">Where the growth starts. Coral and Bramble ignore this and start at the centre.</p>
-          </div>
-        </div>
+        <div class="groupLabel">Shape</div>
+
         <div class="settingRow" data-key="scale">
           <div class="settingRowInner"><span class="settingName">Scale</span><span class="settingVal" id="scaleVal">1</span></div>
           <div class="settingControl"><input type="range" id="scale" min="0.5" max="2" step="0.05" value="1" class="bigSlider"></div>
         </div>
+
         <div class="settingRow" data-key="reach">
           <div class="settingRowInner"><span class="settingName">Reach</span><span class="settingVal" id="reachVal">70</span></div>
           <div class="settingControl">
             <input type="range" id="reach" min="20" max="100" step="1" value="70" class="bigSlider">
-            <p class="settingHint">How far inward the growth runs. Low keeps it near the edge, high nears the opposite side.</p>
+            <p class="settingHint">How far the growth extends from its start point toward the far side.</p>
           </div>
         </div>
-        <div class="settingRow" data-key="spread">
-          <div class="settingRowInner"><span class="settingName">Spread</span><span class="settingVal" id="spreadVal">50</span></div>
-          <div class="settingControl">
-            <input type="range" id="spread" min="0" max="100" step="1" value="50" class="bigSlider">
-            <p class="settingHint">Low is narrow and upright, high fans wide.</p>
-          </div>
-        </div>
-        <div class="settingRow" data-key="curl">
-          <div class="settingRowInner"><span class="settingName">Curl</span><span class="settingVal" id="curlVal">30</span></div>
-          <div class="settingControl">
-            <input type="range" id="curl" min="0" max="100" step="1" value="30" class="bigSlider">
-            <p class="settingHint">How wavy each limb is. Low is straight, high is curled.</p>
-          </div>
-        </div>
+
         <div class="settingRow" data-key="depth">
           <div class="settingRowInner"><span class="settingName">Depth</span><span class="settingVal" id="depthVal">5</span></div>
           <div class="settingControl">
             <input type="range" id="depth" min="2" max="8" step="1" value="5" class="bigSlider">
-            <p class="settingHint">How many times limbs split. Higher makes finer twigs.</p>
+            <p class="settingHint">How many times leaves or strands divide. Higher makes finer detail.</p>
           </div>
         </div>
+
+        <div class="settingRow" data-key="curl">
+          <div class="settingRowInner"><span class="settingName">Curl</span><span class="settingVal" id="curlVal">30</span></div>
+          <div class="settingControl">
+            <input type="range" id="curl" min="0" max="100" step="1" value="30" class="bigSlider">
+            <p class="settingHint">How much the strands sway or coil. Low is calm, high is curled.</p>
+          </div>
+        </div>
+
         <div class="settingRow" data-key="density">
           <div class="settingRowInner"><span class="settingName">Density</span><span class="settingVal" id="densityVal">50</span></div>
           <div class="settingControl">
             <input type="range" id="density" min="0" max="100" step="1" value="50" class="bigSlider">
-            <p class="settingHint">How many growths share the picture. Most styles multiply roots along the edge.</p>
+            <p class="settingHint">How full the design is. Low is sparse, high is lush.</p>
           </div>
         </div>
+
         <div class="settingRow" data-key="lineWeight">
           <div class="settingRowInner"><span class="settingName">Line weight</span><span class="settingVal" id="lineWeightVal">5</span></div>
           <div class="settingControl"><input type="range" id="lineWeight" min="1" max="20" step="1" value="5" class="bigSlider"></div>
         </div>
+
         <div class="settingRow" data-key="taper">
           <div class="settingRowInner"><span class="settingName">Taper</span><span class="settingVal" id="taperVal">50</span></div>
           <div class="settingControl">
             <input type="range" id="taper" min="0" max="100" step="1" value="50" class="bigSlider">
-            <p class="settingHint">How much thinner outer branches get. Low keeps even lines, high makes fine tips.</p>
+            <p class="settingHint">How much thinner outer strands get. Low keeps even lines, high makes fine tips.</p>
           </div>
         </div>
-        <div class="settingRow" data-key="lean">
-          <div class="settingRowInner"><span class="settingName">Lean</span><span class="settingVal" id="leanVal">0</span></div>
-          <div class="settingControl">
-            <input type="range" id="lean" min="-100" max="100" step="5" value="0" class="bigSlider">
-            <p class="settingHint">Sway to one side like wind. Negative leans left, positive leans right.</p>
-          </div>
-        </div>
+
         <div class="settingRow" data-key="tips">
           <div class="settingRowInner"><span class="settingName">Tips</span><span class="settingVal" id="tipsVal">Buds</span></div>
           <div class="settingControl">
@@ -137,86 +118,64 @@
               <option value="buds" selected>Buds</option>
               <option value="leaves">Leaves</option>
             </select>
-            <p class="settingHint">What sits on the ends of the smallest limbs.</p>
+            <p class="settingHint">What sits on the ends of the smallest strands.</p>
           </div>
         </div>
+
         <div class="settingRow" data-key="tipSize">
           <div class="settingRowInner"><span class="settingName">Tip size</span><span class="settingVal" id="tipSizeVal">50</span></div>
           <div class="settingControl"><input type="range" id="tipSize" min="10" max="100" step="5" value="50" class="bigSlider"></div>
         </div>
+
         <div class="settingRow" data-key="colourStyle">
           <div class="settingRowInner"><span class="settingName">Colour style</span><span class="settingVal" id="colourStyleVal">Fade</span></div>
           <div class="settingControl">
             <select id="colourStyle" class="bigSelect">
               <option value="fade" selected>Fade root to tip</option>
-              <option value="limb">Colour per limb</option>
-              <option value="random">Random per limb</option>
+              <option value="limb">Colour per strand</option>
+              <option value="random">Random per strand</option>
             </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- FOLD (coral, bramble) -->
+      <div class="settingsGroup" data-styles="coral bramble">
+        <div class="groupLabel">Fold</div>
+        <div class="settingRow" data-key="fold">
+          <div class="settingRowInner"><span class="settingName">Fold count</span><span class="settingVal" id="foldVal">8</span></div>
+          <div class="settingControl">
+            <input type="range" id="fold" min="4" max="16" step="1" value="8" class="bigSlider">
+            <p class="settingHint">How many equal slices the design repeats around the centre.</p>
           </div>
         </div>
       </div>
 
       <!-- BAMBOO -->
       <div class="settingsGroup" data-styles="bamboo">
-        <div class="groupLabel">Bamboo</div>
+        <div class="groupLabel">Grove</div>
         <div class="settingRow" data-key="bambooCount">
-          <div class="settingRowInner"><span class="settingName">Stalks</span><span class="settingVal" id="bambooCountVal">9</span></div>
-          <div class="settingControl"><input type="range" id="bambooCount" min="1" max="20" step="1" value="9" class="bigSlider"></div>
-        </div>
-        <div class="settingRow" data-key="bambooBend">
-          <div class="settingRowInner"><span class="settingName">Bend</span><span class="settingVal" id="bambooBendVal">15</span></div>
-          <div class="settingControl">
-            <input type="range" id="bambooBend" min="0" max="100" step="1" value="15" class="bigSlider">
-            <p class="settingHint">How much each stalk bows. 0 is straight, 100 is arched.</p>
-          </div>
-        </div>
-        <div class="settingRow" data-key="bambooJoints">
-          <div class="settingRowInner"><span class="settingName">Joint spacing</span><span class="settingVal" id="bambooJointsVal">40</span></div>
-          <div class="settingControl"><input type="range" id="bambooJoints" min="10" max="100" step="1" value="40" class="bigSlider"></div>
-        </div>
-        <div class="settingRow" data-key="bambooWidth">
-          <div class="settingRowInner"><span class="settingName">Stalk width</span><span class="settingVal" id="bambooWidthVal">50</span></div>
-          <div class="settingControl"><input type="range" id="bambooWidth" min="10" max="100" step="5" value="50" class="bigSlider"></div>
-        </div>
-        <div class="settingRow" data-key="bambooLeaf">
-          <div class="settingRowInner"><span class="settingName">Leaves</span><span class="settingVal" id="bambooLeafVal">Sprays</span></div>
-          <div class="settingControl">
-            <select id="bambooLeaf" class="bigSelect">
-              <option value="none">None</option>
-              <option value="single">One per joint</option>
-              <option value="spray" selected>Full spray</option>
-            </select>
-          </div>
+          <div class="settingRowInner"><span class="settingName">Stalks per side</span><span class="settingVal" id="bambooCountVal">5</span></div>
+          <div class="settingControl"><input type="range" id="bambooCount" min="2" max="12" step="1" value="5" class="bigSlider"></div>
         </div>
         <div class="settingRow" data-key="bambooLeafLen">
           <div class="settingRowInner"><span class="settingName">Leaf length</span><span class="settingVal" id="bambooLeafLenVal">50</span></div>
           <div class="settingControl"><input type="range" id="bambooLeafLen" min="10" max="100" step="5" value="50" class="bigSlider"></div>
         </div>
-        <div class="settingRow" data-key="bambooLeafAngle">
-          <div class="settingRowInner"><span class="settingName">Leaf angle</span><span class="settingVal" id="bambooLeafAngleVal">50</span></div>
-          <div class="settingControl"><input type="range" id="bambooLeafAngle" min="0" max="100" step="5" value="50" class="bigSlider"></div>
-        </div>
       </div>
 
       <!-- FERN -->
       <div class="settingsGroup" data-styles="fern">
-        <div class="groupLabel">Fern</div>
+        <div class="groupLabel">Corner frames</div>
         <div class="settingRow" data-key="fernCount">
-          <div class="settingRowInner"><span class="settingName">Fronds</span><span class="settingVal" id="fernCountVal">5</span></div>
-          <div class="settingControl"><input type="range" id="fernCount" min="1" max="15" step="1" value="5" class="bigSlider"></div>
+          <div class="settingRowInner"><span class="settingName">Fronds per corner</span><span class="settingVal" id="fernCountVal">3</span></div>
+          <div class="settingControl"><input type="range" id="fernCount" min="1" max="6" step="1" value="3" class="bigSlider"></div>
         </div>
         <div class="settingRow" data-key="fernSpacing">
           <div class="settingRowInner"><span class="settingName">Leaf pairing</span><span class="settingVal" id="fernSpacingVal">50</span></div>
           <div class="settingControl">
             <input type="range" id="fernSpacing" min="0" max="100" step="5" value="50" class="bigSlider">
             <p class="settingHint">Low is tight and brushy, high is open and airy.</p>
-          </div>
-        </div>
-        <div class="settingRow" data-key="fernDroop">
-          <div class="settingRowInner"><span class="settingName">Droop</span><span class="settingVal" id="fernDroopVal">30</span></div>
-          <div class="settingControl">
-            <input type="range" id="fernDroop" min="0" max="100" step="5" value="30" class="bigSlider">
-            <p class="settingHint">How much the frond sags at the tip.</p>
           </div>
         </div>
       </div>
