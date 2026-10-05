@@ -1,8 +1,9 @@
 /* =========================================================================
    THICKET: sw.js (offline memory)
-   v3: full style rewrite. Raise the number whenever any app file changes.
+   v4: symmetrical overhaul of the seven styles.
+   Raise the number whenever any app file changes.
    ========================================================================= */
-const CACHE_NAME = "thicket-v3";
+const CACHE_NAME = "thicket-v4";
 
 const APP_FILES = [
   "./",
