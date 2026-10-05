@@ -2,6 +2,7 @@
    THICKET: thicket-app.js
    Controls, colours, colour picker, saved looks and saving images.
    Uses ThicketStyles.draw() from thicket-styles.js for the drawing.
+   Removed origin/lean/spread. Added fold for coral and bramble.
    ========================================================================= */
 (function () {
   "use strict";
@@ -14,12 +15,9 @@
   var handle = $("sheetHandle");
 
   var CONTROLS = [
-    "growthStyle", "seed", "origin", "scale", "reach", "spread", "curl",
-    "depth", "density", "lineWeight", "taper", "lean", "tips", "tipSize",
-    "colourStyle",
-    "bambooCount", "bambooBend", "bambooJoints", "bambooWidth",
-    "bambooLeaf", "bambooLeafLen", "bambooLeafAngle",
-    "fernCount", "fernSpacing", "fernDroop",
+    "growthStyle", "seed", "scale", "reach", "depth", "curl", "density",
+    "lineWeight", "taper", "tips", "tipSize", "colourStyle", "fold",
+    "bambooCount", "bambooLeafLen", "fernCount", "fernSpacing",
     "colorScheme", "color1", "color2", "color3", "color4",
     "bgStyle", "bgColor", "bgColor2", "bgTransparent",
     "size", "format", "filename"
@@ -161,10 +159,8 @@
 
   /* ---------- labels ---------- */
   var LABELS = {
-    origin: { bottom: "Bottom", top: "Top", left: "Left", right: "Right",
-      two: "Bottom and top", sides: "Left and right", all: "All four sides", corners: "Corners" },
     tips: { none: "None", dots: "Dots", buds: "Buds", leaves: "Leaves" },
-    colourStyle: { fade: "Fade root to tip", limb: "Colour per limb", random: "Random per limb" }
+    colourStyle: { fade: "Fade root to tip", limb: "Colour per strand", random: "Random per strand" }
   };
 
   function syncBadge(id) {
@@ -184,15 +180,14 @@
     $("bgTransparentVal").textContent = $("bgTransparent").value === "true" ? "On" : "Off";
   }
 
-  /* ---------- show only what applies ---------- */
   function updateVisibility() {
     var style = $("growthStyle").value;
     document.querySelectorAll("[data-styles]").forEach(function (el) {
       var ok = el.getAttribute("data-styles").split(" ").indexOf(style) !== -1;
       el.classList.toggle("hidden", !ok);
     });
-    var names = { tree: "Tree", bamboo: "Bamboo", reed: "River Reed",
-      mycelium: "Mycelium", fern: "Fern", coral: "Coral Bloom", bramble: "Bramble" };
+    var names = { tree: "Tree of life", bamboo: "Grove", reed: "Fountain",
+      mycelium: "Mirror lace", fern: "Corner frames", coral: "Mandala", bramble: "Wreath" };
     $("sheetLabel").textContent = names[style] || "Settings";
   }
 
@@ -222,7 +217,6 @@
   function getParams() {
     var p = {};
     CONTROLS.forEach(function (id) { p[id] = $(id).value; });
-    p.growthStyle = p.growthStyle;
     p.colors = [p.color1, p.color2, p.color3, p.color4];
     return p;
   }
@@ -299,13 +293,13 @@
 
   /* ---------- randomize ---------- */
   var STYLE_RANDOM = {
-    tree:     ["spread", "curl", "depth", "density", "taper", "tips"],
-    bamboo:   ["bambooCount", "bambooBend", "bambooJoints", "bambooWidth", "bambooLeaf", "bambooLeafLen", "bambooLeafAngle"],
+    tree:     ["depth", "curl", "density", "taper", "tips"],
+    bamboo:   ["bambooCount", "bambooLeafLen", "density", "curl"],
     reed:     ["density", "curl", "tips"],
     mycelium: ["density", "curl", "depth", "taper"],
-    fern:     ["fernCount", "fernSpacing", "fernDroop", "curl"],
-    coral:    ["density", "reach", "depth", "curl"],
-    bramble:  ["density", "reach", "curl", "depth", "tips"]
+    fern:     ["fernCount", "fernSpacing", "curl"],
+    coral:    ["fold", "density", "reach", "depth", "curl"],
+    bramble:  ["fold", "density", "reach", "curl", "depth", "tips"]
   };
 
   function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
@@ -328,14 +322,13 @@
     return pick(words) + "-" + Math.floor(Math.random() * 8999);
   }
 
-  /* Keeps your style, origin, size, background and transparency. */
+  /* Keeps your style, size, background and transparency. */
   function randomizeAll() {
     $("seed").value = randomSeed();
     (STYLE_RANDOM[$("growthStyle").value] || []).forEach(randomizeControl);
     $("reach").value = String(40 + Math.floor(Math.random() * 61));
     $("scale").value = (0.7 + Math.floor(Math.random() * 11) * 0.1).toFixed(2).replace(/0$/, "");
     $("lineWeight").value = String(2 + Math.floor(Math.random() * 8));
-    $("lean").value = String(pick([-60, -30, 0, 0, 0, 30, 60]));
     $("colourStyle").value = pick(["fade", "limb", "random"]);
     var c1 = hslHex(Math.random() * 360, 45 + Math.random() * 35, 40 + Math.random() * 20);
     setColor("color1", c1);
