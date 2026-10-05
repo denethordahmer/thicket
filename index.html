@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e130e">
+<title>Thicket</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="thicket.css">
+</head>
+<body>
+<div class="appWrap">
+  <canvas id="mainCanvas"></canvas>
+  <div class="topBar">
+    <span class="topTitle">Thicket</span>
+    <button id="btnRandomize" class="iconBtn" title="Randomize">⟳</button>
+    <button id="btnExport" class="iconBtn" title="Save image">↓</button>
+  </div>
+  <div class="sheet" id="sheet">
+    <div class="sheetHandle" id="sheetHandle">
+      <div class="sheetPill"></div>
+      <span class="sheetLabel" id="sheetLabel">Settings</span>
+      <button id="btnGenerate" class="generateBtn">Grow</button>
+    </div>
+    <div class="settingsList" id="settingsList">
+
+      <!-- PATTERN -->
+      <div class="settingsGroup">
+        <div class="groupLabel">Pattern</div>
+        <div class="settingRow" data-key="growthStyle">
+          <div class="settingRowInner"><span class="settingName">Style</span><span class="settingVal" id="growthStyleVal">Tree</span></div>
+          <div class="settingControl">
+            <select id="growthStyle" class="bigSelect">
+              <option value="tree" selected>Tree</option>
+              <option value="bamboo">Bamboo</option>
+              <option value="reed">River Reed</option>
+              <option value="mycelium">Mycelium</option>
+              <option value="fern">Fern</option>
+              <option value="coral">Coral Bloom</option>
+              <option value="bramble">Bramble</option>
+            </select>
+            <p class="settingHint">Tree, Bamboo, Reed, Mycelium and Fern grow from the picture edge. Coral and Bramble grow outward from the centre.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="seed">
+          <div class="settingRowInner"><span class="settingName">Seed</span><span class="settingVal" id="seedVal">thicket</span></div>
+          <div class="settingControl">
+            <input type="text" id="seed" class="bigText" value="thicket" spellcheck="false" autocapitalize="off" autocomplete="off">
+            <button id="btnNewSeed" class="wideBtn" type="button">New seed</button>
+            <p class="settingHint">Same seed and same settings always give the same picture. Type anything.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROWTH (shared) -->
+      <div class="settingsGroup">
+        <div class="groupLabel">Growth</div>
+        <div class="settingRow" data-key="origin" data-styles="tree bamboo reed mycelium fern">
+          <div class="settingRowInner"><span class="settingName">Origin</span><span class="settingVal" id="originVal">Bottom</span></div>
+          <div class="settingControl">
+            <select id="origin" class="bigSelect">
+              <option value="bottom" selected>Bottom</option>
+              <option value="top">Top</option>
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+              <option value="two">Bottom and top</option>
+              <option value="sides">Left and right</option>
+              <option value="all">All four sides</option>
+              <option value="corners">Corners</option>
+            </select>
+            <p class="settingHint">Where the growth starts. Coral and Bramble ignore this and start at the centre.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="scale">
+          <div class="settingRowInner"><span class="settingName">Scale</span><span class="settingVal" id="scaleVal">1</span></div>
+          <div class="settingControl"><input type="range" id="scale" min="0.5" max="2" step="0.05" value="1" class="bigSlider"></div>
+        </div>
+        <div class="settingRow" data-key="reach">
+          <div class="settingRowInner"><span class="settingName">Reach</span><span class="settingVal" id="reachVal">70</span></div>
+          <div class="settingControl">
+            <input type="range" id="reach" min="20" max="100" step="1" value="70" class="bigSlider">
+            <p class="settingHint">How far inward the growth runs. Low keeps it near the edge, high nears the opposite side.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="spread">
+          <div class="settingRowInner"><span class="settingName">Spread</span><span class="settingVal" id="spreadVal">50</span></div>
+          <div class="settingControl">
+            <input type="range" id="spread" min="0" max="100" step="1" value="50" class="bigSlider">
+            <p class="settingHint">Low is narrow and upright, high fans wide.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="curl">
+          <div class="settingRowInner"><span class="settingName">Curl</span><span class="settingVal" id="curlVal">30</span></div>
+          <div class="settingControl">
+            <input type="range" id="curl" min="0" max="100" step="1" value="30" class="bigSlider">
+            <p class="settingHint">How wavy each limb is. Low is straight, high is curled.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="depth">
+          <div class="settingRowInner"><span class="settingName">Depth</span><span class="settingVal" id="depthVal">5</span></div>
+          <div class="settingControl">
+            <input type="range" id="depth" min="2" max="8" step="1" value="5" class="bigSlider">
+            <p class="settingHint">How many times limbs split. Higher makes finer twigs.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="density">
+          <div class="settingRowInner"><span class="settingName">Density</span><span class="settingVal" id="densityVal">50</span></div>
+          <div class="settingControl">
+            <input type="range" id="density" min="0" max="100" step="1" value="50" class="bigSlider">
+            <p class="settingHint">How many growths share the picture. Most styles multiply roots along the edge.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="lineWeight">
+          <div class="settingRowInner"><span class="settingName">Line weight</span><span class="settingVal" id="lineWeightVal">5</span></div>
+          <div class="settingControl"><input type="range" id="lineWeight" min="1" max="20" step="1" value="5" class="bigSlider"></div>
+        </div>
+        <div class="settingRow" data-key="taper">
+          <div class="settingRowInner"><span class="settingName">Taper</span><span class="settingVal" id="taperVal">50</span></div>
+          <div class="settingControl">
+            <input type="range" id="taper" min="0" max="100" step="1" value="50" class="bigSlider">
+            <p class="settingHint">How much thinner outer branches get. Low keeps even lines, high makes fine tips.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="lean">
+          <div class="settingRowInner"><span class="settingName">Lean</span><span class="settingVal" id="leanVal">0</span></div>
+          <div class="settingControl">
+            <input type="range" id="lean" min="-100" max="100" step="5" value="0" class="bigSlider">
+            <p class="settingHint">Sway to one side like wind. Negative leans left, positive leans right.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="tips">
+          <div class="settingRowInner"><span class="settingName">Tips</span><span class="settingVal" id="tipsVal">Buds</span></div>
+          <div class="settingControl">
+            <select id="tips" class="bigSelect">
+              <option value="none">None</option>
+              <option value="dots">Dots</option>
+              <option value="buds" selected>Buds</option>
+              <option value="leaves">Leaves</option>
+            </select>
+            <p class="settingHint">What sits on the ends of the smallest limbs.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="tipSize">
+          <div class="settingRowInner"><span class="settingName">Tip size</span><span class="settingVal" id="tipSizeVal">50</span></div>
+          <div class="settingControl"><input type="range" id="tipSize" min="10" max="100" step="5" value="50" class="bigSlider"></div>
+        </div>
+        <div class="settingRow" data-key="colourStyle">
+          <div class="settingRowInner"><span class="settingName">Colour style</span><span class="settingVal" id="colourStyleVal">Fade</span></div>
+          <div class="settingControl">
+            <select id="colourStyle" class="bigSelect">
+              <option value="fade" selected>Fade root to tip</option>
+              <option value="limb">Colour per limb</option>
+              <option value="random">Random per limb</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- BAMBOO -->
+      <div class="settingsGroup" data-styles="bamboo">
+        <div class="groupLabel">Bamboo</div>
+        <div class="settingRow" data-key="bambooCount">
+          <div class="settingRowInner"><span class="settingName">Stalks</span><span class="settingVal" id="bambooCountVal">9</span></div>
+          <div class="settingControl"><input type="range" id="bambooCount" min="1" max="20" step="1" value="9" class="bigSlider"></div>
+        </div>
+        <div class="settingRow" data-key="bambooBend">
+          <div class="settingRowInner"><span class="settingName">Bend</span><span class="settingVal" id="bambooBendVal">15</span></div>
+          <div class="settingControl">
+            <input type="range" id="bambooBend" min="0" max="100" step="1" value="15" class="bigSlider">
+            <p class="settingHint">How much each stalk bows. 0 is straight, 100 is arched.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="bambooJoints">
+          <div class="settingRowInner"><span class="settingName">Joint spacing</span><span class="settingVal" id="bambooJointsVal">40</span></div>
+          <div class="settingControl"><input type="range" id="bambooJoints" min="10" max="100" step="1" value="40" class="bigSlider"></div>
+        </div>
+        <div class="settingRow" data-key="bambooWidth">
+          <div class="settingRowInner"><span class="settingName">Stalk width</span><span class="settingVal" id="bambooWidthVal">50</span></div>
+          <div class="settingControl"><input type="range" id="bambooWidth" min="10" max="100" step="5" value="50" class="bigSlider"></div>
+        </div>
+        <div class="settingRow" data-key="bambooLeaf">
+          <div class="settingRowInner"><span class="settingName">Leaves</span><span class="settingVal" id="bambooLeafVal">Sprays</span></div>
+          <div class="settingControl">
+            <select id="bambooLeaf" class="bigSelect">
+              <option value="none">None</option>
+              <option value="single">One per joint</option>
+              <option value="spray" selected>Full spray</option>
+            </select>
+          </div>
+        </div>
+        <div class="settingRow" data-key="bambooLeafLen">
+          <div class="settingRowInner"><span class="settingName">Leaf length</span><span class="settingVal" id="bambooLeafLenVal">50</span></div>
+          <div class="settingControl"><input type="range" id="bambooLeafLen" min="10" max="100" step="5" value="50" class="bigSlider"></div>
+        </div>
+        <div class="settingRow" data-key="bambooLeafAngle">
+          <div class="settingRowInner"><span class="settingName">Leaf angle</span><span class="settingVal" id="bambooLeafAngleVal">50</span></div>
+          <div class="settingControl"><input type="range" id="bambooLeafAngle" min="0" max="100" step="5" value="50" class="bigSlider"></div>
+        </div>
+      </div>
+
+      <!-- FERN -->
+      <div class="settingsGroup" data-styles="fern">
+        <div class="groupLabel">Fern</div>
+        <div class="settingRow" data-key="fernCount">
+          <div class="settingRowInner"><span class="settingName">Fronds</span><span class="settingVal" id="fernCountVal">5</span></div>
+          <div class="settingControl"><input type="range" id="fernCount" min="1" max="15" step="1" value="5" class="bigSlider"></div>
+        </div>
+        <div class="settingRow" data-key="fernSpacing">
+          <div class="settingRowInner"><span class="settingName">Leaf pairing</span><span class="settingVal" id="fernSpacingVal">50</span></div>
+          <div class="settingControl">
+            <input type="range" id="fernSpacing" min="0" max="100" step="5" value="50" class="bigSlider">
+            <p class="settingHint">Low is tight and brushy, high is open and airy.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="fernDroop">
+          <div class="settingRowInner"><span class="settingName">Droop</span><span class="settingVal" id="fernDroopVal">30</span></div>
+          <div class="settingControl">
+            <input type="range" id="fernDroop" min="0" max="100" step="5" value="30" class="bigSlider">
+            <p class="settingHint">How much the frond sags at the tip.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLOUR -->
+      <div class="settingsGroup">
+        <div class="groupLabel">Colour</div>
+        <div class="settingRow" data-key="colorScheme">
+          <div class="settingRowInner"><span class="settingName">Scheme</span><span class="settingVal" id="colorSchemeVal">Custom</span></div>
+          <div class="settingControl">
+            <select id="colorScheme" class="bigSelect">
+              <option value="custom" selected>Custom (my colours)</option>
+              <option value="complementary">Complementary</option>
+              <option value="splitcomp">Split-complementary</option>
+              <option value="analogous">Analogous</option>
+              <option value="triadic">Triadic</option>
+              <option value="tetradic">Tetradic</option>
+              <option value="monochrome">Monochrome</option>
+              <option value="moss">Moss &amp; Brass</option>
+              <option value="autumn">Autumn</option>
+              <option value="forest">Deep Forest</option>
+              <option value="noir">Noir</option>
+              <option value="neon">Neon</option>
+              <option value="pastel">Pastel on dark</option>
+            </select>
+            <p class="settingHint">The first six build from Colour 1 and keep its shade. The rest are fixed and set the background too.</p>
+          </div>
+        </div>
+        <div class="settingRow" data-key="color1" id="color1Row">
+          <div class="settingRowInner"><span class="settingName">Colour 1</span><span class="colorDot" id="color1Dot" style="background:#c9a24a;"></span></div>
+          <div class="settingControl"></div><input type="hidden" id="color1" value="#c9a24a">
+        </div>
+        <div class="settingRow" data-key="color2" id="color2Row">
+          <div class="settingRowInner"><span class="settingName">Colour 2</span><span class="colorDot" id="color2Dot" style="background:#9bcf7a;"></span></div>
+          <div class="settingControl"></div><input type="hidden" id="color2" value="#9bcf7a">
+        </div>
+        <div class="settingRow" data-key="color3" id="color3Row">
+          <div class="settingRowInner"><span class="settingName">Colour 3</span><span class="colorDot" id="color3Dot" style="background:#4f7a3a;"></span></div>
+          <div class="settingControl"></div><input type="hidden" id="color3" value="#4f7a3a">
+        </div>
+        <div class="settingRow" data-key="color4" id="color4Row">
+          <div class="settingRowInner"><span class="settingName">Colour 4</span><span class="colorDot" id="color4Dot" style="background:#e8d28a;"></span></div>
+          <div class="settingControl"></div><input type="hidden" id="color4" value="#e8d28a">
+        </div>
+      </div>
+
+      <!-- BACKGROUND -->
+      <div class="settingsGroup">
+        <div class="groupLabel">Background</div>
+        <div class="settingRow" data-key="bgStyle">
+          <div class="settingRowInner"><span class="settingName">Style</span><span class="settingVal" id="bgStyleVal">Solid</span></div>
+          <div class="settingControl">
+            <select id="bgStyle" class="bigSelect">
+              <option value="solid" selected>Solid</option>
+              <option value="linear">Gradient, top to bottom</option>
+              <option value="diagonal">Gradient, diagonal</option>
+              <option value="radial">Gradient, from the centre</option>
+            </select>
+          </div>
+        </div>
+        <div class="settingRow" data-key="bgColor" id="bgColorRow">
+          <div class="settingRowInner"><span class="settingName">Background</span><span class="colorDot" id="bgColorDot" style="background:#0e130e;"></span></div>
+          <div class="settingControl"></div><input type="hidden" id="bgColor" value="#0e130e">
+        </div>
+        <div class="settingRow" data-key="bgColor2" id="bgColor2Row">
+          <div class="settingRowInner"><span class="settingName">Background 2</span><span class="colorDot" id="bgColor2Dot" style="background:#1c2a1b;"></span></div>
+          <div class="settingControl"></div><input type="hidden" id="bgColor2" value="#1c2a1b">
+        </div>
+        <div class="settingRow" data-key="bgTransparent">
+          <div class="settingRowInner"><span class="settingName">Transparent bg</span><span class="settingVal" id="bgTransparentVal">Off</span></div>
+          <div class="settingControl">
+            <div class="toggleWrap"><button class="toggleBtn" id="bgTransparentToggle" data-on="false" type="button">Off</button></div>
+            <p class="settingHint">Saved PNGs keep a see-through background. JPG uses the background colour.</p>
+          </div>
+          <input type="hidden" id="bgTransparent" value="false">
+        </div>
+      </div>
+
+      <!-- OUTPUT -->
+      <div class="settingsGroup">
+        <div class="groupLabel">Output</div>
+        <div class="settingRow" data-key="size">
+          <div class="settingRowInner"><span class="settingName">Size</span><span class="settingVal" id="sizeVal">Square</span></div>
+          <div class="settingControl">
+            <select id="size" class="bigSelect">
+              <option value="square" selected>Square 1500×1500</option>
+              <option value="portrait">Portrait 1080×1620</option>
+              <option value="a17">Samsung A17 1080×2340</option>
+              <option value="landscape">Landscape 1920×1080</option>
+            </select>
+          </div>
+        </div>
+        <div class="settingRow" data-key="format">
+          <div class="settingRowInner"><span class="settingName">File type</span><span class="settingVal" id="formatVal">PNG</span></div>
+          <div class="settingControl">
+            <select id="format" class="bigSelect">
+              <option value="png" selected>PNG (sharp, can be transparent)</option>
+              <option value="jpg">JPG (smaller file)</option>
+            </select>
+          </div>
+        </div>
+        <div class="settingRow" data-key="filename">
+          <div class="settingRowInner"><span class="settingName">File name</span><span class="settingVal" id="filenameVal">thicket</span></div>
+          <div class="settingControl"><input type="text" id="filename" class="bigText" value="thicket" spellcheck="false" autocapitalize="off" autocomplete="off"></div>
+        </div>
+      </div>
+
+      <!-- SAVED LOOKS -->
+      <div class="settingsGroup">
+        <div class="groupLabel">Saved looks</div>
+        <div class="settingRow" data-key="presets">
+          <div class="settingRowInner"><span class="settingName">My presets</span><span class="settingVal" id="presetCountVal">0</span></div>
+          <div class="settingControl">
+            <select id="presetList" class="bigSelect"><option value="">— none saved —</option></select>
+            <div class="btnTrio">
+              <button id="btnSavePreset" class="wideBtn" type="button">Save current</button>
+              <button id="btnLoadPreset" class="wideBtn" type="button">Load</button>
+              <button id="btnDeletePreset" class="wideBtn danger" type="button">Delete</button>
+            </div>
+            <p class="settingHint">Saves every setting and colour on this phone only.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="colorPickerOverlay" class="cpOverlay hidden">
+  <div class="cpPanel">
+    <div class="cpTitle" id="cpTitle">Pick a colour</div>
+    <div class="cpSLWrap"><canvas id="cpSLCanvas"></canvas><div id="cpSLCursor" class="cpCursor"></div></div>
+    <div class="cpHueWrap"><canvas id="cpHueCanvas"></canvas><div id="cpHueCursor" class="cpHueCursor"></div></div>
+    <div class="cpHexRow"><span class="cpHexLabel">#</span><input type="text" id="cpHexInput" class="cpHexInput" maxlength="6" spellcheck="false" autocomplete="off"><div id="cpHexPreview" class="cpHexPreview"></div></div>
+    <div class="cpPresets" id="cpPresets"></div>
+    <div class="cpButtons"><button class="cpBtn" id="cpCancel" type="button">Cancel</button><button class="cpBtn primary" id="cpApply" type="button">Apply</button></div>
+  </div>
+</div>
+
+<script src="thicket-styles.js"></script>
+<script src="thicket-app.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(function (e) { console.warn("SW:", e); });
+  }
+</script>
+</body>
+</html>
