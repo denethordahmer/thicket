@@ -1,9 +1,9 @@
 /* =========================================================================
    THICKET: sw.js (offline memory)
-   Version bump rule: raise the number whenever any app file changes.
-   Icons skipped safely until they exist.
+   v2: initial full build with icons.
+   Raise the number whenever any app file changes.
    ========================================================================= */
-const CACHE_NAME = "thicket-v1";
+const CACHE_NAME = "thicket-v2";
 
 const APP_FILES = [
   "./",
